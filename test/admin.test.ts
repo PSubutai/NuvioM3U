@@ -362,3 +362,78 @@ describe("healthz", () => {
     expect(res.body).toEqual({ ok: true });
   });
 });
+
+describe("no page leaks escaped markup", () => {
+  // A nested html`` fragment interpolated without raw() is escaped and shows
+  // up as literal tags on the page. Asserting on visible text alone cannot
+  // tell the two apart, so check for escaped structural tags directly.
+  const ESCAPED_TAGS = ["&lt;tr", "&lt;td", "&lt;div", "&lt;span", "&lt;form", "&lt;option", "&lt;img", "&lt;select", "&lt;a "];
+
+  function assertRendered(html: string, where: string) {
+    for (const marker of ESCAPED_TAGS) {
+      expect(html, `${where} renders ${marker} as text instead of markup`).not.toContain(marker);
+    }
+  }
+
+  it("renders the lists page with no lists", async () => {
+    const res = await request(testApp(db)).get("/");
+    expect(res.text).toContain('class="muted">No lists yet');
+    assertRendered(res.text, "empty lists page");
+  });
+
+  it("renders the lists page with lists", async () => {
+    seedList(db, { name: "A", channels: [{ name: "One", urls: ["https://x/1"] }] });
+    seedList(db, { name: "B", display_mode: "channels" });
+    const res = await request(testApp(db)).get("/");
+    assertRendered(res.text, "populated lists page");
+  });
+
+  it("renders a list page with no channels", async () => {
+    const list = seedList(db, { name: "Empty" });
+    const res = await request(testApp(db)).get(`/lists/${list.id}`);
+    expect(res.text).toContain("No channels yet");
+    expect(res.text).toContain("No providers");
+    assertRendered(res.text, "empty list page");
+  });
+
+  it("renders a list page with channels and providers", async () => {
+    const list = seedList(db, {
+      name: "Full",
+      channels: [
+        { name: "One", urls: ["https://x/1"], logo: "https://l/1.png" },
+        { name: "Two", urls: ["https://x/2"], enabled: false },
+      ],
+    });
+    createProvider(db, { list_id: list.id, kind: "m3u", url: "https://p/list.m3u" });
+    const res = await request(testApp(db)).get(`/lists/${list.id}`);
+    assertRendered(res.text, "populated list page");
+  });
+
+  it("renders a channel page with and without sources", async () => {
+    const list = seedList(db, {
+      name: "L",
+      channels: [{ name: "Has URLs", urls: ["https://x/1"] }, { name: "No URLs", urls: [] }],
+    });
+    const [withUrls, without] = listChannels(db, list.id);
+    const app = testApp(db);
+
+    const populated = await request(app).get(`/channels/${withUrls!.id}`);
+    assertRendered(populated.text, "channel with sources");
+
+    const bare = await request(app).get(`/channels/${without!.id}`);
+    expect(bare.text).toContain("No URLs yet");
+    assertRendered(bare.text, "channel without sources");
+  });
+
+  it("renders the login page", async () => {
+    const app = testApp(db, testConfig({ adminPassword: "pw" }));
+    assertRendered((await request(app).get("/login")).text, "login page");
+  });
+
+  it("still escapes user-supplied markup", async () => {
+    seedList(db, { name: "<script>alert(1)</script>" });
+    const res = await request(testApp(db)).get("/");
+    expect(res.text).not.toContain("<script>alert(1)</script>");
+    expect(res.text).toContain("&lt;script&gt;");
+  });
+});

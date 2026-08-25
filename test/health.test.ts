@@ -60,8 +60,10 @@ describe("probeUrl", () => {
     const result = await probeUrl("https://x/live.m3u8", fetchImpl);
 
     expect(result.status).toBe("ok");
-    const range = (fetchImpl.mock.calls[0]![1]?.headers as Record<string, string>).Range;
-    expect(Number.parseInt(range.replace("bytes=0-", ""), 10)).toBeGreaterThanOrEqual(
+    const headers = fetchImpl.mock.calls[0]![1]?.headers as Record<string, string>;
+    const range = headers.Range ?? "";
+    expect(range).toMatch(/^bytes=0-\d+$/);
+    expect(Number.parseInt(range.slice("bytes=0-".length), 10)).toBeGreaterThanOrEqual(
       "#EXTM3U".length,
     );
   });

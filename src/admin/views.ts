@@ -46,9 +46,11 @@ function healthBadge(sources: Source[]): string {
 }
 
 export function renderListsPage(lists: ListSummary[]): string {
+  // Both branches must be raw(): a bare html`` result is an ordinary string,
+  // which the outer template would escape and render as visible markup.
   const rows =
     lists.length === 0
-      ? html`<tr><td colspan="4" class="muted">No lists yet. Create one below.</td></tr>`
+      ? raw(html`<tr><td colspan="4" class="muted">No lists yet. Create one below.</td></tr>`)
       : raw(
           lists
             .map(
