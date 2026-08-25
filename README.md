@@ -87,8 +87,7 @@ server. Unraid's Docker tab cannot build images — use the terminal.
 ```bash
 mkdir -p /mnt/user/appdata/nuviom3u-src
 cd /mnt/user/appdata/nuviom3u-src
-# copy the repo here over SMB, or:
-git clone <your-repo-url> .
+git clone https://github.com/PSubutai/NuvioM3U.git .
 ```
 
 ### 2. Build the image
