@@ -30,6 +30,8 @@ https://m3u.example.com/s/Xq4Kd0mS2ZbA7pLwNvR8/manifest.json
 - **Custom artwork** — poster, logo and background per list, and per channel.
 - **Slug rotation** — regenerate a list's URL to revoke access if it leaks.
 
+What changed in each release is listed in [CHANGELOG.md](CHANGELOG.md).
+
 ## Quick start
 
 ```bash

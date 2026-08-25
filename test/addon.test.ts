@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import request from "supertest";
 import type { Db } from "../src/db/index.ts";
 import { createChannel, createSource, listChannels } from "../src/db/repo.ts";
@@ -33,6 +34,20 @@ describe("manifest", () => {
     expect(res.body.types).toEqual(["tv"]);
     expect(res.body.resources).toEqual(["catalog", "meta", "stream"]);
     expect(res.body.idPrefixes).toEqual([`m3u:${list.slug}:`]);
+  });
+
+  it("reports the version from package.json", async () => {
+    // Clients treat the manifest version as the signal to refresh a cached
+    // addon, so a stale version here means an update that silently does
+    // nothing. Keeping one source of truth is what stops that drifting.
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
+      version: string;
+    };
+    const list = seedList(db, { name: "V" });
+    const res = await request(testApp(db)).get(`/s/${list.slug}/manifest.json`);
+
+    expect(res.body.version).toBe(pkg.version);
+    expect(res.body.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 
   it("gives each list a distinct addon id", async () => {

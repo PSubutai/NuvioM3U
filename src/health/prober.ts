@@ -1,5 +1,6 @@
 import type { Db } from "../db/index.ts";
 import { listAllSources, listSourcesForList, updateSource, type Source } from "../db/repo.ts";
+import { USER_AGENT } from "../version.ts";
 
 export type ProbeStatus = "ok" | "dead" | "unknown";
 
@@ -54,7 +55,7 @@ export async function probeUrl(
   let response: Response;
   try {
     response = await fetchImpl(url, {
-      headers: { Range: range, "User-Agent": "NuvioM3U/1.0" },
+      headers: { Range: range, "User-Agent": USER_AGENT },
       redirect: "follow",
       signal: AbortSignal.timeout(timeoutMs),
     });
