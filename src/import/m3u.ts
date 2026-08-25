@@ -149,7 +149,7 @@ export async function fetchPlaylist(
   try {
     response = await fetchImpl(url, { signal: AbortSignal.timeout(PLAYLIST_TIMEOUT_MS) });
   } catch (error) {
-    throw new Error(`Could not download the playlist: ${String(error)}`);
+    throw new Error(`Could not download the playlist: ${String(error)}`, { cause: error });
   }
 
   if (!response.ok) {

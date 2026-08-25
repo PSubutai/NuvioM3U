@@ -87,7 +87,7 @@ async function buildInstallInfo(req: Request, config: AppConfig, list: List): Pr
   );
   const manifestUrl = `${base}/s/${list.slug}/manifest.json`;
 
-  let qrSvg: string | null = null;
+  let qrSvg: string | null;
   try {
     qrSvg = await QRCode.toString(manifestUrl, {
       type: "svg",

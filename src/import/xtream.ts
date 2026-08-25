@@ -120,7 +120,9 @@ async function getJson<T>(url: string, fetchImpl: FetchLike, what: string): Prom
   try {
     response = await fetchImpl(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   } catch (error) {
-    throw new Error(`Could not reach the Xtream server while fetching ${what}: ${String(error)}`);
+    throw new Error(`Could not reach the Xtream server while fetching ${what}: ${String(error)}`, {
+      cause: error,
+    });
   }
 
   if (!response.ok) {
