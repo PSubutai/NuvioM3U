@@ -1,0 +1,51 @@
+# Keep secrets out of the build context so they can never land in an image
+# layer, even if a future COPY gets less specific than it is today.
+config/
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite*
+.env
+.env.*
+.npmrc
+*.m3u
+*.m3u8
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+*.bak
+*.dump
+backups/
+*.log
+logs/
+
+# Build output and tooling - the image builds these itself
+node_modules
+dist
+build
+coverage
+*.tsbuildinfo
+.eslintcache
+
+# Not needed at runtime
+test
+.git
+.gitignore
+.github
+*.md
+docker-compose.yml
+docker-compose.override.yml
+unraid-template.xml
+.vscode
+.idea
+.DS_Store
+
+# Claude Code
+.claude
+.mcp.json
+CLAUDE.md
+CLAUDE.local.md
+.claudeignore

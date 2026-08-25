@@ -1,0 +1,82 @@
+# --- Secrets and user data -------------------------------------------------
+# The SQLite database is the single most sensitive file in this project. It
+# holds Xtream provider passwords in plaintext, M3U URLs that usually embed
+# IPTV credentials, and every list slug - which is the only thing protecting
+# an installed addon. Never commit it, in any location or under any name.
+config/
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local compose overrides - the usual home for real hostnames and passwords.
+docker-compose.override.yml
+docker-compose.override.yaml
+compose.override.yml
+compose.override.yaml
+
+# npm auth tokens
+.npmrc
+
+# Real playlists carry provider credentials inside the URLs. Sample playlists
+# used as test fixtures are exempt, but check them before committing.
+*.m3u
+*.m3u8
+!test/fixtures/*.m3u
+!test/fixtures/*.m3u8
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+*.p12
+
+# Backups and dumps, which reproduce the database in another form
+*.bak
+*.backup
+*.dump
+*.sql.gz
+backups/
+
+# --- Build output and tooling ----------------------------------------------
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.eslintcache
+.vitest-cache/
+
+# Local scratch space
+.verify/
+tmp/
+*.log
+logs/
+
+# --- Claude Code -----------------------------------------------------------
+# .mcp.json can hold MCP server credentials and API tokens, and
+# settings.local.json records local paths and granted permissions.
+.claude/
+.mcp.json
+CLAUDE.md
+CLAUDE.local.md
+.claudeignore
+
+# --- Editors and OS --------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

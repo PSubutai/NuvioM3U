@@ -1,0 +1,20 @@
+# Normalise line endings so a Windows checkout still produces a working Linux
+# container image.
+* text=auto eol=lf
+
+# These MUST be LF. A shell script or Dockerfile committed with CRLF fails in
+# the container with "exec /usr/local/bin/entrypoint.sh: no such file or
+# directory" - the file is present, but the shebang reads as "/bin/sh\r".
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker/entrypoint.sh text eol=lf
+
+# Binary, never convert
+*.png binary
+*.jpg binary
+*.ico binary
+*.db binary
+*.sqlite binary
+
+# Collapse lockfile noise in diffs and reviews
+package-lock.json -diff linguist-generated

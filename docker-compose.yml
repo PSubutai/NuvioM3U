@@ -1,0 +1,41 @@
+services:
+  nuviom3u:
+    build: .
+    image: nuviom3u:latest
+    container_name: nuviom3u
+    restart: unless-stopped
+    ports:
+      - "${PORT:-7000}:${PORT:-7000}"
+    volumes:
+      - ./config:/config
+    environment:
+      # Values come from .env in this directory (see .env.example).
+      # The defaults after :- apply when a variable is unset.
+      PORT: "${PORT:-7000}"
+      DB_PATH: "${DB_PATH:-/config/nuviom3u.db}"
+
+      # Must match the public hostname this is served on, or the manifest URLs
+      # shown in the admin UI will point at the container.
+      PUBLIC_URL: "${PUBLIC_URL:-}"
+      TRUST_PROXY: "${TRUST_PROXY:-true}"
+
+      # Blank means no password on the admin UI. Only safe when something else
+      # authenticates in front. Never protects the /s/ addon routes - Stremio
+      # cannot sign in, so those rely on the unguessable slug.
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
+
+      HEALTHCHECK_INTERVAL_MINUTES: "${HEALTHCHECK_INTERVAL_MINUTES:-0}"
+      PUID: "${PUID:-99}"
+      PGID: "${PGID:-100}"
+      TZ: "${TZ:-Etc/UTC}"
+
+    # Traefik labels, for when Traefik and this container share a network.
+    # Pangolin users normally point a resource at http://nuviom3u:7000 instead
+    # and can ignore these.
+    #
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.nuviom3u.rule=Host(`m3u.example.com`)"
+    #   - "traefik.http.routers.nuviom3u.entrypoints=websecure"
+    #   - "traefik.http.routers.nuviom3u.tls.certresolver=letsencrypt"
+    #   - "traefik.http.services.nuviom3u.loadbalancer.server.port=7000"
