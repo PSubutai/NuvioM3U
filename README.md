@@ -33,6 +33,8 @@ https://m3u.example.com/s/Xq4Kd0mS2ZbA7pLwNvR8/manifest.json
 ## Quick start
 
 ```bash
+git clone https://github.com/PSubutai/NuvioM3U.git
+cd NuvioM3U
 docker compose up -d --build
 ```
 
@@ -40,9 +42,98 @@ Open <http://localhost:7000>, create a list, add some streams, then copy the
 manifest URL from the install panel (or scan the QR code) and paste it into
 Nuvio/Stremio's addon search box.
 
+## Deploying with Docker
+
+There is no published image yet, so you build it yourself. The build is
+self-contained — it compiles TypeScript and the native SQLite module inside the
+image, so you need nothing on the host but Docker.
+
+### Build the image
+
+```bash
+git clone https://github.com/PSubutai/NuvioM3U.git
+cd NuvioM3U
+docker build -t nuviom3u:latest .
+```
+
+### Run it with compose
+
+Copy `.env.example` to `.env`, set `PUBLIC_URL` and `ADMIN_PASSWORD`, then:
+
+```bash
+docker compose up -d
+```
+
+Compose reads `.env` automatically. This is the recommended path because
+updating is a single command.
+
+### Run it by hand
+
+```bash
+docker run -d \
+  --name nuviom3u \
+  --restart unless-stopped \
+  -p 7000:7000 \
+  -v /srv/nuviom3u:/config \
+  -e PUBLIC_URL=https://m3u.example.com \
+  -e ADMIN_PASSWORD='a-long-random-string' \
+  nuviom3u:latest
+```
+
+Check it came up:
+
+```bash
+curl http://localhost:7000/healthz     # -> {"ok":true}
+```
+
+### Updating
+
+With compose, one command does everything:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+**If you started the container by hand, `docker restart` will not pick up a
+rebuilt image.** A container is bound to the image *ID* it was created from.
+Rebuilding `nuviom3u:latest` produces a new image and merely moves the tag —
+the existing container still points at the old image ID, so restarting it
+silently keeps running the old code. You have to replace the container:
+
+```bash
+git pull
+docker build -t nuviom3u:latest .
+docker rm -f nuviom3u
+docker run -d --name nuviom3u ...      # the same run command as before
+```
+
+Removing the container is safe: your data lives on the `/config` volume, not
+inside the container. To confirm which image a container is actually running:
+
+```bash
+docker inspect nuviom3u    --format '{{.Image}}'
+docker inspect nuviom3u:latest --format '{{.Id}}'   # these should match
+```
+
+### Backups
+
+Everything lives in one SQLite file on the `/config` volume:
+
+```
+<your /config path>/nuviom3u.db
+```
+
+Back that file up. Restoring it restores every list, including the slugs, so
+addons already installed in Nuvio/Stremio keep working.
+
+It also contains your Xtream passwords and any credentials embedded in M3U
+URLs, in plaintext — treat the backup as a secret.
+
 ## Configuration
 
-All settings are environment variables.
+All settings are environment variables. See `.env.example` for an annotated
+copy.
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -52,35 +143,57 @@ All settings are environment variables.
 | `TRUST_PROXY` | `true` | Trust `X-Forwarded-Proto` / `X-Forwarded-Host`. |
 | `ADMIN_PASSWORD` | *(unset)* | Unset means no password on the admin UI. Set it to require one. |
 | `HEALTHCHECK_INTERVAL_MINUTES` | `0` | Automatic stream probing. `0` disables it. |
-| `PUID` / `PGID` | `99` / `100` | Ownership of `/config`, Unraid convention. |
+| `PUID` / `PGID` | `99` / `100` | Ownership of `/config`. |
 
-### Behind Pangolin / Traefik
+### Behind a reverse proxy
 
-Point your Pangolin resource (or Traefik router) at the container on port
-`7000`, then **set `PUBLIC_URL` to the public HTTPS address**. Without it the
-admin UI will generate manifest URLs pointing at the container's internal
-address, and the addon will install but show nothing — the single most common
-way to misconfigure this.
+Point the proxy at the container on port `7000`, then **set `PUBLIC_URL` to the
+public HTTPS address**, with no trailing slash. Without it the admin UI
+generates manifest URLs pointing at the container's internal address; they
+install without error and then show an empty list. This is the single most
+common way to misconfigure the deployment.
 
-`TRUST_PROXY=true` lets the app fall back to `X-Forwarded-*` if `PUBLIC_URL` is
-unset, but setting `PUBLIC_URL` explicitly is more reliable.
+`TRUST_PROXY=true` lets the app fall back to `X-Forwarded-Proto` and
+`X-Forwarded-Host` when `PUBLIC_URL` is unset, but setting `PUBLIC_URL`
+explicitly is more reliable.
 
-### A note on access control
+### Access control
 
-The addon routes under `/s/<slug>/` are deliberately **not** password protected.
-Stremio cannot sign in, so any addon endpoint must be reachable without
-credentials. The unguessable slug is what protects them — treat a manifest URL
-as a secret, and rotate it if it leaks.
+**Do not put SSO in front of this.** Stremio and Nuvio cannot sign in. If an
+authentication layer (Pangolin, Authelia, oauth2-proxy, Cloudflare Access)
+covers the whole hostname, the client receives a login redirect instead of your
+manifest, and the addon installs but shows nothing.
 
-`ADMIN_PASSWORD` protects only the admin UI. Leaving it unset is reasonable when
-Pangolin authenticates in front, but note that **your M3U URLs usually contain
-your IPTV username and password**, and the admin UI displays them. If anything
-can reach the container directly, set a password.
+The routes under `/s/<slug>/` are deliberately unauthenticated. The unguessable
+slug is what protects them — treat a manifest URL as a secret, and rotate it if
+it leaks.
+
+`ADMIN_PASSWORD` protects only the admin UI. The right split is:
+
+1. Leave the proxy resource **unauthenticated**, targeting `http://<host>:7000`.
+2. Set **`ADMIN_PASSWORD`** so the admin UI authenticates on its own.
+3. The `/s/<slug>/` routes stay reachable for Stremio.
+
+Leaving `ADMIN_PASSWORD` unset is only reasonable if nothing untrusted can reach
+the container at all, because **your M3U URLs usually contain your IPTV username
+and password** and the admin UI displays them in full.
+
+If your proxy supports per-path rules you can instead authenticate `/` while
+leaving `/s/` open. The `ADMIN_PASSWORD` approach above works regardless and
+needs no proxy features.
 
 ## Unraid
 
-There is no published image, so the first step is always to build one on the
-server. Unraid's Docker tab cannot build images — use the terminal.
+Unraid works the same way, with two wrinkles: its Docker tab cannot build
+images, and updating needs *Apply* rather than *Restart*.
+
+Two directories are involved, and they should stay separate — keep the source
+checkout out of `appdata` so re-cloning can never touch your database.
+
+| | Path |
+|---|---|
+| Source | `/mnt/user/appdata/nuviom3u-src` |
+| Data (`/config`) | `/mnt/user/appdata/nuviom3u` |
 
 ### 1. Put the source on the array
 
@@ -92,12 +205,12 @@ git clone https://github.com/PSubutai/NuvioM3U.git .
 
 ### 2. Build the image
 
+Unraid's Docker tab cannot build images — use the terminal.
+
 ```bash
 cd /mnt/user/appdata/nuviom3u-src
 docker build -t nuviom3u:latest .
 ```
-
-Rebuild with the same command after pulling changes, then restart the container.
 
 ### 3. Add the container
 
@@ -115,17 +228,10 @@ Then **Docker → Add Container → NuvioM3U**, and set:
 | Port | `7000` |
 | `/config` | `/mnt/user/appdata/nuviom3u` |
 | `PUBLIC_URL` | `https://m3u.example.com` (no trailing slash) |
-| `ADMIN_PASSWORD` | a long random string — see below |
+| `ADMIN_PASSWORD` | a long random string |
 
 Unraid will report "update not available" for a locally built image. That is
 expected and harmless.
-
-### Alternative: Compose Manager
-
-If you prefer compose, install the **Compose Manager** plugin from Community
-Applications and point it at the bundled `docker-compose.yml`. Set `PUBLIC_URL`
-and `ADMIN_PASSWORD` in that file first. The container appears in the Docker tab
-but is managed by the plugin rather than by an Unraid template.
 
 ### 4. Verify
 
@@ -133,40 +239,32 @@ but is managed by the plugin rather than by an Unraid template.
 curl http://<unraid-ip>:7000/healthz     # -> {"ok":true}
 ```
 
-### Backups
+### Updating on Unraid
 
-Everything lives in one SQLite file:
-
+```bash
+cd /mnt/user/appdata/nuviom3u-src
+git pull
+docker build -t nuviom3u:latest .
 ```
-/mnt/user/appdata/nuviom3u/nuviom3u.db
-```
 
-Include that path in your appdata backup. Restoring it restores every list,
-including the slugs, so installed addons keep working.
+Then **Docker → NuvioM3U → Edit → Apply**.
 
-## Publishing through Pangolin
+**Do not use Restart.** Restart reuses the existing container, which is still
+bound to the old image ID, so it silently keeps running the old code — the
+rebuild appears to have done nothing. Edit → Apply performs a fresh `docker run`
+against the rebuilt image. You do not need to change any setting; opening Edit
+and pressing Apply is enough.
 
-**Do not enable Pangolin authentication on this resource.**
+Your lists are safe: they live on the `/config` volume at
+`/mnt/user/appdata/nuviom3u`, not inside the container.
 
-Stremio and Nuvio cannot sign in. If SSO sits in front of the whole hostname,
-the client receives an auth redirect instead of your manifest, and the addon
-installs but shows nothing.
+### Alternative: Compose Manager
 
-The right split is:
-
-1. Leave the Pangolin resource **unauthenticated**, targeting
-   `http://<unraid-ip>:7000`.
-2. Set **`ADMIN_PASSWORD`** so the admin UI authenticates on its own.
-3. The `/s/<slug>/` routes stay reachable, protected by their unguessable slug.
-
-Set `PUBLIC_URL` to the public hostname Pangolin serves. Without it the admin UI
-generates manifest URLs pointing at the container's internal address — they
-install without error and then show an empty list. This is the most common way
-to misconfigure the deployment.
-
-If your Pangolin version supports per-path rules, you can instead authenticate
-`/` while leaving `/s/` open. Check its current documentation; the
-`ADMIN_PASSWORD` approach above works regardless and needs no proxy features.
+If you prefer compose, install the **Compose Manager** plugin from Community
+Applications and point it at the bundled `docker-compose.yml`. Set `PUBLIC_URL`
+and `ADMIN_PASSWORD` in `.env` first. Updating is then
+`docker compose up -d --build`, which recreates the container for you and avoids
+the Restart pitfall entirely.
 
 ## Development
 
@@ -183,6 +281,12 @@ somewhere writable:
 
 ```bash
 DB_PATH=./config/nuviom3u.db npm run dev
+```
+
+The app does not read `.env` on its own. To use one locally:
+
+```bash
+node --env-file=.env --watch src/index.ts
 ```
 
 ## How it maps onto the Stremio addon protocol
