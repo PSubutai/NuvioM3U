@@ -24,13 +24,17 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Check tag matches package.json version
+      - name: Check tag matches package.json version and CHANGELOG.md
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           pkg="$(node -p "require('./package.json').version")"
           tag="${GITHUB_REF_NAME#v}"
           if [ "$pkg" != "$tag" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $pkg"
+            exit 1
+          fi
+          if ! grep -qF "## [$tag]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no ## [$tag] section"
             exit 1
           fi
 
@@ -77,3 +81,49 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release:
+    needs: image
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v heading="## [$version]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && (/^## \[/ || /^\[[^]]+\]: /) { exit }
+            found { lines[++n] = $0 }
+            END {
+              first = 1; while (first <= n && lines[first] == "") first++
+              last = n;  while (last >= first && lines[last] == "") last--
+              for (i = first; i <= last; i++) print lines[i]
+            }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md section for $version is empty"
+            exit 1
+          fi
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:$version"
+          cat >> notes.md <<EOF
+
+          ### Docker image
+
+          \`\`\`
+          docker pull $image
+          \`\`\`
+          EOF
+
+      - name: Create or update the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+          fi

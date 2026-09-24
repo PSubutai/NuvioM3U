@@ -340,7 +340,13 @@ Pushes to `main` do not build on their own. To cut a release:
    git push origin v0.2.0
    ```
 
-The workflow fails if the tag does not match the `package.json` version. The
+Once the image is published, the workflow creates the GitHub release for the
+tag. The release notes are that version's section of `CHANGELOG.md`, followed by
+the `docker pull` command for the image. Re-running the workflow updates the
+release instead of failing.
+
+The workflow fails before building anything if the tag does not match the
+`package.json` version, or if `CHANGELOG.md` has no section for it. The
 manifest version comes from `package.json`, and clients use it to refresh a
 cached addon, so the two must agree.
 
