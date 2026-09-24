@@ -37,7 +37,9 @@ What changed in each release is listed in [CHANGELOG.md](CHANGELOG.md).
 ```bash
 git clone https://github.com/PSubutai/NuvioM3U.git
 cd NuvioM3U
-docker compose up -d --build
+cp .env.example .env        # then set PUBLIC_URL and ADMIN_PASSWORD
+docker compose pull
+docker compose up -d
 ```
 
 Open <http://localhost:7000>, create a list, add some streams, then copy the
@@ -46,28 +48,36 @@ Nuvio/Stremio's addon search box.
 
 ## Deploying with Docker
 
-There is no published image yet, so you build it yourself. The build is
-self-contained — it compiles TypeScript and the native SQLite module inside the
-image, so you need nothing on the host but Docker.
+Prebuilt images are published to the GitHub Container Registry:
 
-### Build the image
-
-```bash
-git clone https://github.com/PSubutai/NuvioM3U.git
-cd NuvioM3U
-docker build -t nuviom3u:latest .
 ```
+ghcr.io/psubutai/nuviom3u
+```
+
+### Image tags
+
+| Tag | What it is |
+|---|---|
+| `latest` | The newest release. Use this. |
+| `0.2.0`, `0.2` | A specific release, or the newest patch of a minor version. Use these to pin. |
+| `dev` | The `dev` branch, rebuilt on every push. Work in progress — it can break. |
+| `main` | The `main` branch at its last manual build. |
+| `sha-abc1234` | One exact commit. Useful for rolling back. |
+
+Images are built for `linux/amd64`.
 
 ### Run it with compose
 
 Copy `.env.example` to `.env`, set `PUBLIC_URL` and `ADMIN_PASSWORD`, then:
 
 ```bash
+docker compose pull
 docker compose up -d
 ```
 
-Compose reads `.env` automatically. This is the recommended path because
-updating is a single command.
+Compose reads `.env` automatically. Set `NUVIOM3U_TAG` there to pull a tag
+other than `latest`. This is the recommended path because updating is two
+commands.
 
 ### Run it by hand
 
@@ -79,7 +89,7 @@ docker run -d \
   -v /srv/nuviom3u:/config \
   -e PUBLIC_URL=https://m3u.example.com \
   -e ADMIN_PASSWORD='a-long-random-string' \
-  nuviom3u:latest
+  ghcr.io/psubutai/nuviom3u:latest
 ```
 
 Check it came up:
@@ -90,22 +100,22 @@ curl http://localhost:7000/healthz     # -> {"ok":true}
 
 ### Updating
 
-With compose, one command does everything:
+With compose, pull the new image and compose recreates the container for you:
 
 ```bash
-git pull
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 **If you started the container by hand, `docker restart` will not pick up a
-rebuilt image.** A container is bound to the image *ID* it was created from.
-Rebuilding `nuviom3u:latest` produces a new image and merely moves the tag —
-the existing container still points at the old image ID, so restarting it
-silently keeps running the old code. You have to replace the container:
+new image.** A container is bound to the image *ID* it was created from.
+Pulling or rebuilding `ghcr.io/psubutai/nuviom3u:latest` produces a new image
+and merely moves the tag — the existing container still points at the old
+image ID, so restarting it silently keeps running the old code. You have to
+replace the container:
 
 ```bash
-git pull
-docker build -t nuviom3u:latest .
+docker pull ghcr.io/psubutai/nuviom3u:latest
 docker rm -f nuviom3u
 docker run -d --name nuviom3u ...      # the same run command as before
 ```
@@ -114,8 +124,26 @@ Removing the container is safe: your data lives on the `/config` volume, not
 inside the container. To confirm which image a container is actually running:
 
 ```bash
-docker inspect nuviom3u    --format '{{.Image}}'
-docker inspect nuviom3u:latest --format '{{.Id}}'   # these should match
+docker inspect nuviom3u --format '{{.Image}}'
+docker inspect ghcr.io/psubutai/nuviom3u:latest --format '{{.Id}}'   # these should match
+```
+
+### Building from source
+
+The build is self-contained — it compiles TypeScript and the native SQLite
+module inside the image, so you need nothing on the host but Docker. The
+compose file keeps its `build:` section, so from a checkout:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+This builds locally and tags the result with the same image name, so the rest
+of this guide applies unchanged. Without compose:
+
+```bash
+docker build -t ghcr.io/psubutai/nuviom3u:latest .
 ```
 
 ### Backups
@@ -186,44 +214,22 @@ needs no proxy features.
 
 ## Unraid
 
-Unraid works the same way, with two wrinkles: its Docker tab cannot build
-images, and updating needs *Apply* rather than *Restart*.
+The bundled template points at the published image, so Unraid pulls and
+updates it like any other container.
 
-Two directories are involved, and they should stay separate — keep the source
-checkout out of `appdata` so re-cloning can never touch your database.
+### 1. Install the template
 
-| | Path |
-|---|---|
-| Source | `/mnt/user/appdata/nuviom3u-src` |
-| Data (`/config`) | `/mnt/user/appdata/nuviom3u` |
-
-### 1. Put the source on the array
+From the Unraid terminal, download the template so it appears in the Docker
+tab:
 
 ```bash
-mkdir -p /mnt/user/appdata/nuviom3u-src
-cd /mnt/user/appdata/nuviom3u-src
-git clone https://github.com/PSubutai/NuvioM3U.git .
+curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-NuvioM3U.xml \
+  https://raw.githubusercontent.com/PSubutai/NuvioM3U/main/unraid-template.xml
 ```
 
-### 2. Build the image
+### 2. Add the container
 
-Unraid's Docker tab cannot build images — use the terminal.
-
-```bash
-cd /mnt/user/appdata/nuviom3u-src
-docker build -t nuviom3u:latest .
-```
-
-### 3. Add the container
-
-Install the template so it appears in the Docker tab:
-
-```bash
-cp unraid-template.xml \
-   /boot/config/plugins/dockerMan/templates-user/my-NuvioM3U.xml
-```
-
-Then **Docker → Add Container → NuvioM3U**, and set:
+**Docker → Add Container → NuvioM3U**, and set:
 
 | Setting | Value |
 |---|---|
@@ -232,10 +238,10 @@ Then **Docker → Add Container → NuvioM3U**, and set:
 | `PUBLIC_URL` | `https://m3u.example.com` (no trailing slash) |
 | `ADMIN_PASSWORD` | a long random string |
 
-Unraid will report "update not available" for a locally built image. That is
-expected and harmless.
+To run the `dev` build instead, change *Repository* to
+`ghcr.io/psubutai/nuviom3u:dev`.
 
-### 4. Verify
+### 3. Verify
 
 ```bash
 curl http://<unraid-ip>:7000/healthz     # -> {"ok":true}
@@ -243,13 +249,36 @@ curl http://<unraid-ip>:7000/healthz     # -> {"ok":true}
 
 ### Updating on Unraid
 
+When a new image is published, the Docker tab shows **update ready**. Click it
+and choose **apply update**. Unraid pulls the image and recreates the
+container.
+
+Your lists are safe: they live on the `/config` volume at
+`/mnt/user/appdata/nuviom3u`, not inside the container.
+
+### Building from source on Unraid
+
+Only do this if you need unreleased code that is not in any published image.
+Keep the source checkout out of the data directory so re-cloning can never
+touch your database:
+
+| | Path |
+|---|---|
+| Source | `/mnt/user/appdata/nuviom3u-src` |
+| Data (`/config`) | `/mnt/user/appdata/nuviom3u` |
+
+Unraid's Docker tab cannot build images — use the terminal:
+
 ```bash
+mkdir -p /mnt/user/appdata/nuviom3u-src
 cd /mnt/user/appdata/nuviom3u-src
-git pull
-docker build -t nuviom3u:latest .
+git clone https://github.com/PSubutai/NuvioM3U.git .
+docker build -t ghcr.io/psubutai/nuviom3u:latest .
 ```
 
-Then **Docker → NuvioM3U → Edit → Apply**.
+To update, `git pull` and build again, then **Docker → NuvioM3U → Edit →
+Apply**. A locally built image never shows "update ready", and pulling a
+published image would replace your build.
 
 **Do not use Restart.** Restart reuses the existing container, which is still
 bound to the old image ID, so it silently keeps running the old code — the
@@ -257,16 +286,12 @@ rebuild appears to have done nothing. Edit → Apply performs a fresh `docker ru
 against the rebuilt image. You do not need to change any setting; opening Edit
 and pressing Apply is enough.
 
-Your lists are safe: they live on the `/config` volume at
-`/mnt/user/appdata/nuviom3u`, not inside the container.
-
 ### Alternative: Compose Manager
 
 If you prefer compose, install the **Compose Manager** plugin from Community
 Applications and point it at the bundled `docker-compose.yml`. Set `PUBLIC_URL`
-and `ADMIN_PASSWORD` in `.env` first. Updating is then
-`docker compose up -d --build`, which recreates the container for you and avoids
-the Restart pitfall entirely.
+and `ADMIN_PASSWORD` in `.env` first. Updating is then `docker compose pull`
+followed by `docker compose up -d`, which recreates the container for you.
 
 ## Development
 
@@ -290,6 +315,45 @@ The app does not read `.env` on its own. To use one locally:
 ```bash
 node --env-file=.env --watch src/index.ts
 ```
+
+### Branches and published images
+
+Day-to-day work goes on the `dev` branch. The
+[Docker image workflow](.github/workflows/docker.yml) runs typecheck, lint and
+tests, then builds and pushes the image:
+
+| Event | Tags pushed |
+|---|---|
+| Push to `dev` | `dev`, `sha-…` |
+| Push a `vX.Y.Z` tag | `X.Y.Z`, `X.Y`, `latest`, `sha-…` |
+| Manual run on `main` | `main`, `latest`, `sha-…` |
+
+Pushes to `main` do not build on their own. To cut a release:
+
+1. Bump `version` in `package.json` and move the `[Unreleased]` entries in
+   `CHANGELOG.md` under the new version.
+2. Merge `dev` into `main`.
+3. Tag the release and push the tag:
+
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+The workflow fails if the tag does not match the `package.json` version. The
+manifest version comes from `package.json`, and clients use it to refresh a
+cached addon, so the two must agree.
+
+To build `main` without releasing, open **Actions → Docker image → Run
+workflow** and pick `main`, or run:
+
+```bash
+gh workflow run docker.yml --ref main
+```
+
+The first time the workflow publishes, GitHub creates the package as
+**private**. Make it public once under the repository's **Packages → nuviom3u →
+Package settings → Change visibility**, or nobody else can pull it.
 
 ## How it maps onto the Stremio addon protocol
 

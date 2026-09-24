@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Pull prebuilt Docker images from `ghcr.io/psubutai/nuviom3u` instead of building your own: `latest` and version tags for releases, `dev` for the development branch
+
+### Changed
+
+- The compose file and Unraid template now pull the published image, so Unraid can update NuvioM3U from its Docker tab like any other container; building from source still works with `docker compose up -d --build`
+
 ## [0.1.0] - 2026-08-25
 
 ### Added

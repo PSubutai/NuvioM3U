@@ -1,7 +1,7 @@
 services:
   nuviom3u:
     build: .
-    image: nuviom3u:latest
+    image: ghcr.io/psubutai/nuviom3u:${NUVIOM3U_TAG:-latest}
     container_name: nuviom3u
     restart: unless-stopped
     ports:

@@ -1,13 +1,13 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>NuvioM3U</Name>
-  <Repository>nuviom3u:latest</Repository>
-  <Registry/>
+  <Repository>ghcr.io/psubutai/nuviom3u:latest</Repository>
+  <Registry>https://github.com/PSubutai/NuvioM3U/pkgs/container/nuviom3u</Registry>
   <Network>bridge</Network>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
   <Support/>
-  <Project/>
+  <Project>https://github.com/PSubutai/NuvioM3U</Project>
   <Overview>
     Self-hosted Nuvio/Stremio addon that serves curated M3U live-stream lists.
     Each list gets its own manifest URL containing a random slug, so the URL
