@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-24
+
 ### Added
 
 - Pull prebuilt Docker images from `ghcr.io/psubutai/nuviom3u` instead of building your own: `latest` and version tags for releases, `dev` for the development branch
@@ -31,5 +33,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Password-protect the admin UI while leaving list URLs reachable for players that cannot sign in
 - Run it as a Docker container with everything stored in a single SQLite file, using the included compose file or Unraid template
 
-[Unreleased]: https://github.com/PSubutai/NuvioM3U/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/PSubutai/NuvioM3U/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/PSubutai/NuvioM3U/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/PSubutai/NuvioM3U/releases/tag/v0.1.0

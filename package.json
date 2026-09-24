@@ -1,6 +1,6 @@
 {
   "name": "nuviom3u",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Self-hosted Nuvio/Stremio addon that serves curated M3U live-stream lists, each behind its own unguessable manifest URL.",
   "type": "module",
