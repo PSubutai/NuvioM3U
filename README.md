@@ -351,10 +351,6 @@ workflow** and pick `main`, or run:
 gh workflow run docker.yml --ref main
 ```
 
-The first time the workflow publishes, GitHub creates the package as
-**private**. Make it public once under the repository's **Packages → nuviom3u →
-Package settings → Change visibility**, or nobody else can pull it.
-
 ## How it maps onto the Stremio addon protocol
 
 Each list is served as a complete, self-contained addon:
